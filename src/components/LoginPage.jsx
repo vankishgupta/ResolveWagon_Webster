@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { CircleUser as UserCircle, Lock, Mail } from 'lucide-react';
+import { CircleUser as UserCircle, Lock, Mail, Key } from 'lucide-react';
 
 export default function LoginPage() {
   const { login, register } = useAuth();
@@ -9,6 +9,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState('citizen');
+  const [registrationKey, setRegistrationKey] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,9 +20,20 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        await login(email, password);
+        // Check for fixed admin credentials
+        if (email === 'admin@resolvewagon.com' && password === 'Admin@123') {
+          // Use the regular login flow but with fixed admin credentials
+          await login(email, password);
+        } else {
+          await login(email, password);
+        }
       } else {
-        await register(name, email, password, role);
+        // Pass registrationKey only for staff role (admin removed)
+        const regData = { name, email, password, role };
+        if (role === 'staff') {
+          regData.registrationKey = registrationKey;
+        }
+        await register(regData);
       }
     } catch (err) {
       setError(err.message || 'An error occurred');
@@ -29,6 +41,9 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+
+  // Show registration key field only for staff role (admin removed)
+  const showRegistrationKey = !isLogin && role === 'staff';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4">
@@ -40,6 +55,7 @@ export default function LoginPage() {
             <UserCircle className="w-12 h-12 text-white" />
           </div>
           <h1 className="text-4xl font-bold text-white mb-2">Resolve Wagon</h1>
+          <p className="text-slate-400">Grievance Resolution System</p>
         </div>
 
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-slate-700/50 p-8">
@@ -127,13 +143,38 @@ export default function LoginPage() {
                 </label>
                 <select
                   value={role}
-                  onChange={(e) => setRole(e.target.value)}
+                  onChange={(e) => {
+                    setRole(e.target.value);
+                    setRegistrationKey(''); // Clear key when role changes
+                  }}
                   className="w-full bg-slate-900/50 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                 >
                   <option value="citizen">Citizen</option>
                   <option value="staff">Staff</option>
-                  <option value="admin">Admin</option>
+                  {/* Admin option removed */}
                 </select>
+              </div>
+            )}
+
+            {showRegistrationKey && (
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Registration Key <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <Key className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                  <input
+                    type="password"
+                    value={registrationKey}
+                    onChange={(e) => setRegistrationKey(e.target.value)}
+                    className="w-full bg-slate-900/50 border border-slate-600 rounded-lg py-3 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    placeholder="Enter staff registration key"
+                    required
+                  />
+                </div>
+                <p className="text-slate-500 text-xs mt-2">
+                  Contact administrator to get the registration key for staff accounts
+                </p>
               </div>
             )}
 
