@@ -27,13 +27,6 @@ export default function Header() {
           </div>
 
           <div className="flex items-center gap-4">
-            <button className="relative w-10 h-10 bg-slate-700/50 hover:bg-slate-700 rounded-lg flex items-center justify-center transition-colors">
-              <Bell className="w-5 h-5 text-slate-300" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-medium">
-                0
-              </span>
-            </button>
-
             <div className="flex items-center gap-3 bg-slate-700/50 rounded-lg px-4 py-2">
               <div className="text-right">
                 <p className="text-white font-medium text-sm">{user?.name}</p>
