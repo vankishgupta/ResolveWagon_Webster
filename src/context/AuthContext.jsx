@@ -2,74 +2,102 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(undefined);
 
+const API_BASE_URL = 'http://localhost:5000/api';
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    checkAuth();
   }, []);
 
-  const login = async (email, password) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const foundUser = users.find((u) =>
-      u.email === email && u.password === password
-    );
-
-    if (!foundUser) {
-      throw new Error('Invalid credentials');
+  const checkAuth = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (token) {
+        const response = await fetch(`${API_BASE_URL}/auth/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setUser(data.user);
+        } else {
+          localStorage.removeItem('token');
+        }
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      localStorage.removeItem('token');
+    } finally {
+      setIsLoading(false);
     }
-
-    const userWithoutPassword = {
-      id: foundUser.id,
-      name: foundUser.name,
-      email: foundUser.email,
-      role: foundUser.role,
-      createdAt: foundUser.createdAt,
-      lastLogin: new Date().toISOString(),
-    };
-
-    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-    setUser(userWithoutPassword);
   };
 
-  const register = async (name, email, password, role) => {
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
+  const login = async (email, password) => {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-    if (users.find((u) => u.email === email)) {
-      throw new Error('Email already exists');
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Login failed');
     }
 
-    const newUser = {
-      id: `user-${Date.now()}`,
-      name,
-      email,
-      password,
-      role,
-      createdAt: new Date().toISOString(),
-    };
+    localStorage.setItem('token', data.token);
+    setUser(data.user);
+  };
 
-    users.push(newUser);
-    localStorage.setItem('users', JSON.stringify(users));
+  const register = async (userData) => {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(userData),
+    });
 
-    const userWithoutPassword = { ...newUser };
-    delete userWithoutPassword.password;
+    const data = await response.json();
 
-    localStorage.setItem('user', JSON.stringify(userWithoutPassword));
-    setUser(userWithoutPassword);
+    if (!response.ok) {
+      throw new Error(data.message || 'Registration failed');
+    }
+
+    localStorage.setItem('token', data.token);
+    setUser(data.user);
   };
 
   const logout = () => {
-    localStorage.removeItem('user');
+    localStorage.removeItem('token');
     setUser(null);
   };
 
+  const getAuthHeaders = () => {
+    const token = localStorage.getItem('token');
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, register, logout, isLoading }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      login, 
+      register, 
+      logout, 
+      isLoading,
+      getAuthHeaders,
+      API_BASE_URL 
+    }}>
       {children}
     </AuthContext.Provider>
   );
