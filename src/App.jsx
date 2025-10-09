@@ -3,6 +3,7 @@ import LoginPage from './components/LoginPage';
 import Header from './components/Header';
 import CitizenDashboard from './components/CitizenDashboard';
 import StaffDashboard from './components/StaffDashboard';
+import AdminDashboard from './components/AdminDashboard';
 
 function AppContent() {
   const { user, isLoading } = useAuth();
@@ -26,10 +27,12 @@ function AppContent() {
       <Header />
 
       <main className="relative max-w-7xl mx-auto px-6 py-8">
-        {user.role === 'citizen' ? (
-          <CitizenDashboard />
-        ) : (
-          <StaffDashboard />
+        {user.role === 'citizen' && <CitizenDashboard />}
+        {user.role === 'staff' && <StaffDashboard />}
+        {user.role === 'admin' && <AdminDashboard />}
+
+        {!['citizen', 'staff', 'admin'].includes(user.role) && (
+          <div className="text-white text-center">Invalid role</div>
         )}
       </main>
     </div>
