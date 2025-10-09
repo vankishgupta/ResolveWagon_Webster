@@ -1,32 +1,53 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, Clock, CheckCircle, Search, MapPin, Image as ImageIcon } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle, Search, MapPin, Image as ImageIcon, Lock } from 'lucide-react';
 import ComplaintDetailsModal from './ComplaintDetailsModal';
 
 export default function StaffDashboard() {
-  const { user } = useAuth();
+  const { user, getAuthHeaders, API_BASE_URL } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadComplaints();
   }, []);
 
-  const loadComplaints = () => {
-    const storedComplaints = JSON.parse(localStorage.getItem('complaints') || '[]');
-    setComplaints(storedComplaints);
+  const loadComplaints = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/complaints`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setComplaints(data);
+      }
+    } catch (error) {
+      console.error('Failed to load complaints:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleComplaintUpdate = (updatedComplaint) => {
-    const storedComplaints = JSON.parse(localStorage.getItem('complaints') || '[]');
-    const updatedComplaints = storedComplaints.map((c) =>
-      c.id === updatedComplaint.id ? updatedComplaint : c
-    );
-    localStorage.setItem('complaints', JSON.stringify(updatedComplaints));
-    loadComplaints();
+    setComplaints(complaints.map(c => 
+      c._id === updatedComplaint._id ? updatedComplaint : c
+    ));
     setSelectedComplaint(null);
+  };
+
+  // Check if complaint is assigned to current user
+  const isAssignedToMe = (complaint) => {
+    return complaint.assignedStaffId === user?.id;
+  };
+
+  // Check if complaint is assigned to someone else
+  const isAssignedToOther = (complaint) => {
+    return complaint.assignedStaffId && complaint.assignedStaffId !== user?.id;
   };
 
   const filteredComplaints = complaints.filter(complaint => {
@@ -64,6 +85,20 @@ export default function StaffDashboard() {
     ).join(' ');
   };
 
+  const getPhotoUrl = (photoUrl) => {
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith('http')) return photoUrl;
+    return `http://localhost:5000${photoUrl}`;
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white">Loading complaints...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -73,6 +108,7 @@ export default function StaffDashboard() {
         <p className="text-slate-400">Manage and resolve citizen complaints</p>
       </div>
 
+      {/* Stats cards remain the same */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50 p-6">
           <div className="flex items-center gap-3 mb-2">
@@ -167,7 +203,7 @@ export default function StaffDashboard() {
           ) : (
             filteredComplaints.map((complaint) => (
               <div
-                key={complaint.id}
+                key={complaint._id}
                 onClick={() => setSelectedComplaint(complaint)}
                 className="bg-slate-900/50 rounded-lg border border-slate-700/50 p-6 hover:border-blue-500/50 transition-all cursor-pointer"
               >
@@ -178,6 +214,19 @@ export default function StaffDashboard() {
                       {complaint.priority === 'high' && (
                         <span className="px-2 py-1 bg-red-500/10 text-red-400 text-xs font-medium rounded border border-red-500/50">
                           HIGH PRIORITY
+                        </span>
+                      )}
+                      {/* Lock indicator for assigned complaints */}
+                      {isAssignedToOther(complaint) && (
+                        <span className="flex items-center gap-1 px-2 py-1 bg-yellow-500/10 text-yellow-400 text-xs font-medium rounded border border-yellow-500/50">
+                          <Lock className="w-3 h-3" />
+                          LOCKED
+                        </span>
+                      )}
+                      {isAssignedToMe(complaint) && (
+                        <span className="flex items-center gap-1 px-2 py-1 bg-green-500/10 text-green-400 text-xs font-medium rounded border border-green-500/50">
+                          <Lock className="w-3 h-3" />
+                          ASSIGNED TO YOU
                         </span>
                       )}
                     </div>
@@ -223,6 +272,12 @@ export default function StaffDashboard() {
                   <div className="flex items-center gap-2 text-sm text-slate-400 pt-3 border-t border-slate-700/50">
                     <span>Assigned to:</span>
                     <span className="text-slate-300 font-medium">{complaint.assignedStaffName}</span>
+                    {isAssignedToOther(complaint) && (
+                      <Lock className="w-4 h-4 text-yellow-400" />
+                    )}
+                    {isAssignedToMe(complaint) && (
+                      <Lock className="w-4 h-4 text-green-400" />
+                    )}
                   </div>
                 )}
               </div>
