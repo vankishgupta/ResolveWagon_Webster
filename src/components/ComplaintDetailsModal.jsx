@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { X, MapPin, Image as ImageIcon, Send, AlertCircle, Clock, CheckCircle } from 'lucide-react';
+import { X, MapPin, Image as ImageIcon, Send, AlertCircle, Clock, CheckCircle, Lock } from 'lucide-react';
 
 export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) {
-  const { user } = useAuth();
+  const { user, getAuthHeaders, API_BASE_URL } = useAuth();
   const [status, setStatus] = useState(complaint.status);
   const [priority, setPriority] = useState(complaint.priority);
   const [assignedStaffId, setAssignedStaffId] = useState(complaint.assignedStaffId || '');
@@ -11,51 +11,106 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
   const [notes, setNotes] = useState([]);
   const [staffMembers, setStaffMembers] = useState([]);
 
-  // staff accessing complaint details
-
   useEffect(() => {
-    const storedNotes = JSON.parse(localStorage.getItem('complaint_notes') || '[]');
-    const complaintNotes = storedNotes.filter((n) => n.complaintId === complaint.id);
-    setNotes(complaintNotes);
+    loadNotes();
+    loadStaffMembers();
+  }, [complaint._id]);
 
-    const users = JSON.parse(localStorage.getItem('users') || '[]');
-    const staff = users.filter((u) => u.role === 'staff' || u.role === 'admin');
-    setStaffMembers(staff);
-  }, [complaint.id]);       //showing that staff users are accessing the data
-
-  const handleAddNote = () => {
-    if (!note.trim()) return;
-
-    const newNote = {
-      id: `note-${Date.now()}`,
-      complaintId: complaint.id,
-      note: note.trim(),
-      staffId: user.id,
-      staffName: user.name,
-      createdAt: new Date().toISOString(),
-    };
-
-    const storedNotes = JSON.parse(localStorage.getItem('complaint_notes') || '[]');  //notes adding part
-    storedNotes.push(newNote);
-    localStorage.setItem('complaint_notes', JSON.stringify(storedNotes));
-
-    setNotes([...notes, newNote]);
-    setNote('');
+  // Check if current user can edit this complaint
+  const canEditComplaint = () => {
+    return user?.role === 'admin' || 
+           !complaint.assignedStaffId || 
+           complaint.assignedStaffId === user?.id;
   };
 
-  const handleUpdate = () => {  //updating complaint information
-    const selectedStaff = staffMembers.find(s => s.id === assignedStaffId);
-    const updatedComplaint = {
-      ...complaint,
-      status,
-      priority,
-      assignedStaffId: assignedStaffId || undefined,
-      assignedStaffName: selectedStaff?.name,
-      updatedAt: new Date().toISOString(),
-      resolvedAt: status === 'resolved' ? new Date().toISOString() : complaint.resolvedAt,
-    };
+  const loadNotes = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/complaints/${complaint._id}/notes`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setNotes(data);
+      }
+    } catch (error) {
+      console.error('Failed to load notes:', error);
+    }
+  };
 
-    onUpdate(updatedComplaint);
+  const loadStaffMembers = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/staff`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setStaffMembers(data);
+      }
+    } catch (error) {
+      console.error('Failed to load staff members:', error);
+    }
+  };
+
+  const handleAddNote = async () => {
+    if (!note.trim()) return;
+
+    // Check if user can add notes
+    if (!canEditComplaint()) {
+      alert(`This complaint is locked and assigned to ${complaint.assignedStaffName}. Only the assigned staff can add notes.`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/complaints/${complaint._id}/notes`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ note: note.trim() })
+      });
+
+      if (response.ok) {
+        const newNote = await response.json();
+        setNotes([...notes, newNote]);
+        setNote('');
+      } else {
+        throw new Error('Failed to add note');
+      }
+    } catch (error) {
+      console.error('Failed to add note:', error);
+      alert('Failed to add note. Please try again.');
+    }
+  };
+
+  const handleUpdate = async () => {
+    // Check if user can update complaint
+    if (!canEditComplaint()) {
+      alert(`This complaint is locked and assigned to ${complaint.assignedStaffName}. Only the assigned staff can update this complaint.`);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/complaints/${complaint._id}`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({
+          status,
+          priority,
+          assignedStaffId: assignedStaffId || undefined
+        })
+      });
+
+      if (response.ok) {
+        const updatedComplaint = await response.json();
+        onUpdate(updatedComplaint);
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to update complaint');
+      }
+    } catch (error) {
+      console.error('Failed to update complaint:', error);
+      alert(error.message || 'Failed to update complaint. Please try again.');
+    }
   };
 
   const getStatusIcon = (statusValue) => {
@@ -73,6 +128,14 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
     ).join(' ');
   };
 
+  const getPhotoUrl = (photoUrl) => {
+    if (!photoUrl) return null;
+    if (photoUrl.startsWith('http')) return photoUrl;
+    return `http://localhost:5000${photoUrl}`;
+  };
+
+  const isComplaintLocked = !canEditComplaint();
+
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
       <div className="bg-slate-800 rounded-2xl border border-slate-700 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
@@ -87,6 +150,20 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
         </div>
 
         <div className="p-6 space-y-6">
+          {/* Complaint locked warning */}
+          {isComplaintLocked && (
+            <div className="bg-yellow-500/10 border border-yellow-500/50 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-yellow-400">
+                <Lock className="w-5 h-5" />
+                <span className="font-medium">Complaint Locked</span>
+              </div>
+              <p className="text-yellow-300 text-sm mt-1">
+                This complaint is assigned to <span className="font-semibold">{complaint.assignedStaffName}</span>. 
+                Only the assigned staff can update this complaint.
+              </p>
+            </div>
+          )}
+
           <div className="bg-slate-900/50 rounded-lg p-6 border border-slate-700/50">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -151,7 +228,7 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
                   <span className="font-medium">Attached Photo</span>
                 </div>
                 <img
-                  src={complaint.photoUrl}
+                  src={getPhotoUrl(complaint.photoUrl)}
                   alt="Complaint"
                   className="rounded-lg max-h-64 object-cover border border-slate-700"
                   onError={(e) => {
@@ -174,7 +251,12 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-600 rounded-lg py-3 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    disabled={isComplaintLocked}
+                    className={`w-full border rounded-lg py-3 px-4 text-white appearance-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                      isComplaintLocked 
+                        ? 'bg-slate-700/50 border-slate-600 cursor-not-allowed' 
+                        : 'bg-slate-800 border-slate-600'
+                    }`}
                   >
                     <option value="open">Open</option>
                     <option value="in_progress">In Progress</option>
@@ -193,7 +275,12 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
                 <select
                   value={priority}
                   onChange={(e) => setPriority(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    disabled={isComplaintLocked}
+                    className={`w-full border rounded-lg py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                      isComplaintLocked 
+                        ? 'bg-slate-700/50 border-slate-600 cursor-not-allowed' 
+                        : 'bg-slate-800 border-slate-600'
+                    }`}
                 >
                   <option value="normal">Normal</option>
                   <option value="high">High</option>
@@ -207,13 +294,20 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
                 <select
                   value={assignedStaffId}
                   onChange={(e) => setAssignedStaffId(e.target.value)}
-                  className="w-full bg-slate-800 border border-slate-600 rounded-lg py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  disabled={isComplaintLocked}
+                  className={`w-full border rounded-lg py-3 px-4 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                    isComplaintLocked 
+                      ? 'bg-slate-700/50 border-slate-600 cursor-not-allowed' 
+                      : 'bg-slate-800 border-slate-600'
+                  }`}
                 >
                   <option value="">Unassigned</option>
                   {staffMembers.map(staff => (
-                    <option key={staff.id} value={staff.id}>
+                    staff.role === "staff" && (
+                    <option key={staff._id} value={staff._id}>
                       {staff.name} ({staff.role})
                     </option>
+                    )
                   ))}
                 </select>
               </div>
@@ -221,9 +315,14 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
 
             <button
               onClick={handleUpdate}
-              className="mt-4 w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg shadow-blue-500/50 font-medium"
+              disabled={isComplaintLocked}
+              className={`mt-4 w-full py-3 rounded-lg transition-all font-medium ${
+                isComplaintLocked
+                  ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 shadow-lg shadow-blue-500/50'
+              }`}
             >
-              Update Complaint
+              {isComplaintLocked ? 'Complaint Locked' : 'Update Complaint'}
             </button>
           </div>
 
@@ -235,7 +334,7 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
                 <p className="text-slate-400 text-sm text-center py-4">No notes yet</p>
               ) : (
                 notes.map(noteItem => (
-                  <div key={noteItem.id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
+                  <div key={noteItem._id} className="bg-slate-800/50 rounded-lg p-4 border border-slate-700/50">
                     <div className="flex items-start justify-between mb-2">
                       <span className="text-slate-300 font-medium">{noteItem.staffName}</span>
                       <span className="text-slate-500 text-xs">
@@ -259,12 +358,22 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleAddNote()}
-                placeholder="Add a note..."
-                className="flex-1 bg-slate-800 border border-slate-600 rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                placeholder={isComplaintLocked ? "Complaint locked - cannot add notes" : "Add a note..."}
+                disabled={isComplaintLocked}
+                className={`flex-1 border rounded-lg py-3 px-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+                  isComplaintLocked
+                    ? 'bg-slate-700/50 border-slate-600 cursor-not-allowed'
+                    : 'bg-slate-800 border-slate-600'
+                }`}
               />
               <button
                 onClick={handleAddNote}
-                className="bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium flex items-center gap-2"
+                disabled={isComplaintLocked || !note.trim()}
+                className={`px-6 py-3 rounded-lg transition-colors font-medium flex items-center gap-2 ${
+                  isComplaintLocked
+                    ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
+                    : 'bg-blue-500 text-white hover:bg-blue-600'
+                }`}
               >
                 <Send className="w-5 h-5" />
                 Add Note
