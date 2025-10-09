@@ -3,33 +3,72 @@ import { useAuth } from '../context/AuthContext';
 import { Plus, AlertCircle, Clock, CheckCircle, MapPin, Image as ImageIcon, Filter } from 'lucide-react';
 import ComplaintForm from './ComplaintForm';
 
-export default function CitizenDashboard() {  //citizen dashboard
-  const { user } = useAuth();
+export default function CitizenDashboard() {
+  const { user, getAuthHeaders, API_BASE_URL } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState('all');
-
-  // useEffect(() => {
-  //   const storedComplaints = JSON.parse(localStorage.getItem('complaints') || '[]');
-  //   const userComplaints = storedComplaints.filter((c) => c.citizenId === user?.id);
-  //   setComplaints(userComplaints);
-  // }, [user]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadComplaints();
   }, []);
 
-  const loadComplaints = () => {
-    const storedComplaints = JSON.parse(localStorage.getItem('complaints') || '[]');
-    setComplaints(storedComplaints);
+  const loadComplaints = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_BASE_URL}/complaints`, {
+        headers: getAuthHeaders()
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setComplaints(data); // This now shows ALL complaints from API
+      }
+    } catch (error) {
+      console.error('Failed to load complaints:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleComplaintSubmit = (newComplaint) => {
-    const storedComplaints = JSON.parse(localStorage.getItem('complaints') || '[]');
-    storedComplaints.push(newComplaint);
-    localStorage.setItem('complaints', JSON.stringify(storedComplaints));
-    setComplaints([newComplaint, ...complaints]);-
-    setShowForm(false);
+  const handleComplaintSubmit = async (newComplaint) => {
+    try {
+      const formData = new FormData();
+      formData.append('title', newComplaint.title);
+      formData.append('description', newComplaint.description);
+      formData.append('category', newComplaint.category);
+      
+      if (newComplaint.locationLat) {
+        formData.append('locationLat', newComplaint.locationLat);
+      }
+      if (newComplaint.locationLng) {
+        formData.append('locationLng', newComplaint.locationLng);
+      }
+      if (newComplaint.photoFile) {
+        formData.append('photo', newComplaint.photoFile);
+      }
+
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE_URL}/complaints`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const createdComplaint = await response.json();
+        setComplaints([createdComplaint, ...complaints]);
+        setShowForm(false);
+      } else {
+        throw new Error('Failed to create complaint');
+      }
+    } catch (error) {
+      console.error('Failed to submit complaint:', error);
+      alert('Failed to submit complaint. Please try again.');
+    }
   };
 
   const filteredComplaints = filter === 'all'
@@ -60,12 +99,20 @@ export default function CitizenDashboard() {  //citizen dashboard
     ).join(' ');
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-white">Loading complaints...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">My Complaints</h1>
-          <p className="text-slate-400">Track and manage your submitted grievances</p>
+          <h1 className="text-3xl font-bold text-white mb-2">Community Complaints</h1>
+          <p className="text-slate-400">View and track all community grievances</p>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -88,8 +135,6 @@ export default function CitizenDashboard() {  //citizen dashboard
           </div>
           <p className="text-slate-400 text-sm">Total Complaints</p>
         </div>
-
-        {/* show complaint count  */}
 
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-orange-700/50 p-6">
           <div className="flex items-center gap-3 mb-2">
@@ -134,8 +179,6 @@ export default function CitizenDashboard() {  //citizen dashboard
         </div>
       </div>
 
-      {/* filter status buttons on-click  */}
-
       <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50 p-6">
         <div className="flex items-center gap-4 mb-6">
           <Filter className="w-5 h-5 text-slate-400" />
@@ -156,8 +199,6 @@ export default function CitizenDashboard() {  //citizen dashboard
           </div>
         </div>
 
-        {/* show all complaints info */}
-
         <div className="space-y-4">
           {filteredComplaints.length === 0 ? (
             <div className="text-center py-12">
@@ -170,7 +211,7 @@ export default function CitizenDashboard() {  //citizen dashboard
           ) : (
             filteredComplaints.map((complaint) => (
               <div
-                key={complaint.id}
+                key={complaint._id}
                 className="bg-slate-900/50 rounded-lg border border-slate-700/50 p-6 hover:border-blue-500/50 transition-all"
               >
                 <div className="flex items-start justify-between mb-4">
@@ -237,5 +278,3 @@ export default function CitizenDashboard() {  //citizen dashboard
     </div>
   );
 }
-
-
