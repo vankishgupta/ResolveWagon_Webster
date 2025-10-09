@@ -1,15 +1,17 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { X, Upload, MapPin } from 'lucide-react';
 
 export default function ComplaintForm({ onClose, onSubmit }) {
-  const { user } = useAuth();
+  const { user, API_BASE_URL } = useAuth();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('broken_pathway');
-  const [photoUrl, setPhotoUrl] = useState('');
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState('');
   const [locationLat, setLocationLat] = useState('');
   const [locationLng, setLocationLng] = useState('');
+  const fileInputRef = useRef(null);
 
   const handleGetLocation = () => {
     if (navigator.geolocation) {
@@ -27,23 +29,28 @@ export default function ComplaintForm({ onClose, onSubmit }) {
     }
   };
 
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPhotoFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
 
     const newComplaint = {
-      id: `complaint-${Date.now()}`,
       title,
-      citizenId: user.id,
-      citizenName: user.name,
       description,
       category,
-      status: 'open',
-      priority: 'normal',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      locationLat: locationLat ? parseFloat(locationLat) : undefined,
-      locationLng: locationLng ? parseFloat(locationLng) : undefined,
-      photoUrl: photoUrl || undefined,
+      locationLat,
+      locationLng,
+      photoFile
     };
 
     onSubmit(newComplaint);
@@ -111,19 +118,48 @@ export default function ComplaintForm({ onClose, onSubmit }) {
 
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">
-              Photo URL
+              Photo
             </label>
-            <div className="relative">
-              <Upload className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <div className="flex flex-col gap-4">
               <input
-                type="url"
-                value={photoUrl}
-                onChange={(e) => setPhotoUrl(e.target.value)}
-                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg py-3 pl-11 pr-4 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                placeholder="https://example.com/photo.jpg"
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                accept="image/*"
+                className="hidden"
               />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-slate-900/50 border border-slate-600 rounded-lg py-3 px-4 text-slate-300 hover:bg-slate-700/50 transition-all flex items-center gap-2 justify-center"
+              >
+                <Upload className="w-5 h-5" />
+                Choose Photo
+              </button>
+              {photoPreview && (
+                <div className="mt-2">
+                  <img
+                    src={photoPreview}
+                    alt="Preview"
+                    className="rounded-lg max-h-48 object-cover border border-slate-600"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPhotoFile(null);
+                      setPhotoPreview('');
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                    className="mt-2 text-red-400 text-sm hover:text-red-300"
+                  >
+                    Remove Photo
+                  </button>
+                </div>
+              )}
             </div>
-            <p className="text-slate-500 text-xs mt-2">Optional: Add a photo URL to help illustrate the issue</p>
+            <p className="text-slate-500 text-xs mt-2">Optional: Upload a photo to help illustrate the issue</p>
           </div>
 
           <div>
