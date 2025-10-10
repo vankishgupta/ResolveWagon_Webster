@@ -98,7 +98,7 @@ export default function AdminDashboard() {
   const getPhotoUrl = (photoUrl) => {
     if (!photoUrl) return null;
     if (photoUrl.startsWith('http')) return photoUrl;
-    return `https://resolve-wagon-backend-webster.vercel.app/${photoUrl}`;
+    return `https://resolvewagon-webster-1.onrender.com/${photoUrl}`;
   };
 
   if (loading) {

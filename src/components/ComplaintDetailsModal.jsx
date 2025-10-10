@@ -131,7 +131,7 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
   const getPhotoUrl = (photoUrl) => {
     if (!photoUrl) return null;
     if (photoUrl.startsWith('http')) return photoUrl;
-    return `https://resolve-wagon-backend-webster.vercel.app/${photoUrl}`;
+    return `https://resolvewagon-webster-1.onrender.com/${photoUrl}`;
   };
 
   const isComplaintLocked = !canEditComplaint();
