@@ -2,6 +2,10 @@ const mongoose = require('mongoose');
 const User = require('./models/User');
 require('dotenv').config();
 
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+
 const createAdminUser = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/resolvewagon');
