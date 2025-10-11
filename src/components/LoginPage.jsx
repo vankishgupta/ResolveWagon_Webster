@@ -21,7 +21,7 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         // Check for fixed admin credentials
-        if (email === `${ADMIN_EMAIL}` && password === `${ADMIN_PASSWORD}`) {
+        if (email === "admin@resolvewagon.com" && password === "Admin@123") {
           // Use the regular login flow but with fixed admin credentials
           await login(email, password);
         } else {
