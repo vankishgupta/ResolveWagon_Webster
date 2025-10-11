@@ -64,6 +64,22 @@ The **Circus of Wonders** faces recurring issues like broken pathways, leaking c
 - Node.js and npm installed
 - MongoDB instance (local or cloud)
 
+
+📊 Future Enhancements
+
+AI-based complaint categorization
+
+Push notifications
+
+Advanced analytics dashboards
+
+Role-based statistics export
+
+🌐 Live Demo </br>
+Frontend : https://resolve-wagon-webster.vercel.app ✅ Live </br>
+Backend : https://resolve-wagon-webster-j9c3.vercel.app ✅ Live
+
+
 ### Steps
 
 ```bash
@@ -96,22 +112,6 @@ JWT_SECRET=your_secret_key
 CLOUDINARY_URL=your_cloudinary_url
 EMAIL_USER=your_email
 EMAIL_PASS=your_email_password
-
-📊 Future Enhancements
-
-AI-based complaint categorization
-
-Push notifications
-
-Advanced analytics dashboards
-
-Role-based statistics export
-
-🌐 Live Demo
-🚀 Live Applications
-Platform	Live URL	Status
-Frontend Application	https://resolve-wagon-webster.vercel.app	✅ Live
-Backend API	https://resolve-wagon-webster-j9c3.vercel.app	✅ Live
 
 
 
