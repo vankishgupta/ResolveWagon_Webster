@@ -88,7 +88,7 @@ export default function StaffDashboard() {
   const getPhotoUrl = (photoUrl) => {
     if (!photoUrl) return null;
     if (photoUrl.startsWith('http')) return photoUrl;
-    return `https://resolvewagon-webster-1.onrender.com/${photoUrl}`;
+    return `https://resolve-wagon-webster-j9c3.vercel.app/${photoUrl}`;
   };
 
   if (loading) {
