@@ -129,10 +129,10 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
   };
 
   const getPhotoUrl = (photoUrl) => {
-    if (!photoUrl) return null;
-    if (photoUrl.startsWith('http')) return photoUrl;
-    return `https://resolvewagon-webster-1.onrender.com/${photoUrl}`;
-  };
+  if (!photoUrl) return null;
+  return photoUrl; // Cloudinary already gives a full URL
+};
+
 
   const isComplaintLocked = !canEditComplaint();
 
@@ -143,7 +143,7 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
           <h2 className="text-2xl font-bold text-white">Complaint Details</h2>
           <button
             onClick={onClose}
-            className="w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-lg flex items-center justify-center transition-colors"
+            className="w-10 h-10 bg-slate-700 active:scale-80 hover:bg-slate-600 rounded-lg flex items-center justify-center transition-colors"
           >
             <X className="w-5 h-5 text-slate-300" />
           </button>
@@ -303,7 +303,7 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
                 >
                   <option value="">Unassigned</option>
                   {staffMembers.map(staff => (
-                    staff.role === "staff" && (
+                    staff.role==="staff" &&(
                     <option key={staff._id} value={staff._id}>
                       {staff.name} ({staff.role})
                     </option>
@@ -316,7 +316,7 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
             <button
               onClick={handleUpdate}
               disabled={isComplaintLocked}
-              className={`mt-4 w-full py-3 rounded-lg transition-all font-medium ${
+              className={`mt-4 w-full py-3 rounded-lg active:scale-80 transition-all font-medium ${
                 isComplaintLocked
                   ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
                   : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white hover:from-blue-600 hover:to-cyan-600 shadow-lg shadow-blue-500/50'
@@ -369,7 +369,7 @@ export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) 
               <button
                 onClick={handleAddNote}
                 disabled={isComplaintLocked || !note.trim()}
-                className={`px-6 py-3 rounded-lg transition-colors font-medium flex items-center gap-2 ${
+                className={`px-6 py-3 rounded-lg transition-colors  active:scale-80 font-medium flex items-center gap-2 ${
                   isComplaintLocked
                     ? 'bg-slate-600 text-slate-400 cursor-not-allowed'
                     : 'bg-blue-500 text-white hover:bg-blue-600'

@@ -1,3 +1,7 @@
+
+
+
+
 const express = require('express');
 const Complaint = require('../models/Complaint');
 const Note = require('../models/Note');
@@ -22,7 +26,6 @@ router.post('/', auth, upload.single('photo'), async (req, res) => {
   try {
     const { title, description, category, locationLat, locationLng } = req.body;
 
-    // Citizens only can create complaints
     if (req.user.role !== 'citizen') {
       return res.status(403).json({ message: 'Only citizens can create complaints' });
     }
@@ -35,7 +38,7 @@ router.post('/', auth, upload.single('photo'), async (req, res) => {
       citizenName: req.user.name,
       locationLat: locationLat ? parseFloat(locationLat) : undefined,
       locationLng: locationLng ? parseFloat(locationLng) : undefined,
-      photoUrl: req.file ? `/uploads/${req.file.filename}` : undefined
+      photoUrl: req.file ? req.file.path : undefined // Cloudinary returns secure_url in 'path'
     });
 
     await complaint.save();
@@ -44,6 +47,7 @@ router.post('/', auth, upload.single('photo'), async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
 
 // Update complaint (staff/admin only)
 router.put('/:id', auth, requireRole(['staff', 'admin']), async (req, res) => {
@@ -72,7 +76,7 @@ router.put('/:id', auth, requireRole(['staff', 'admin']), async (req, res) => {
     };
 
     if (assignedStaffId) {
-      const User = require('../models/User');
+      const User = require('../models/user');
       const staff = await User.findById(assignedStaffId);
       if (staff && (staff.role === 'staff' || staff.role === 'admin')) {
         updateData.assignedStaffId = staff._id;
@@ -150,6 +154,10 @@ router.post('/:id/notes', auth, requireRole(['staff', 'admin']), async (req, res
   }
 });
 
+
+
+
+
 // Generate CSV report (admin only) - Using csv-writer
 router.get('/export/csv', auth, requireRole(['admin']), async (req, res) => {
   try {
@@ -201,10 +209,10 @@ router.get('/export/csv', auth, requireRole(['admin']), async (req, res) => {
       ]
     });
 
-    // Write the data to a CSV file
+    // ✅ Write the data to a CSV file
     await csvWriter.writeRecords(csvData);
 
-    // Send the file as a download
+    // ✅ Send the file as a download
     res.download('complaints-report.csv', 'complaints-report.csv', err => {
       if (err) {
         console.error('File download error:', err);
