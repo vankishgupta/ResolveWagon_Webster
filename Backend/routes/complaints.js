@@ -76,7 +76,7 @@ router.put('/:id', auth, requireRole(['staff', 'admin']), async (req, res) => {
     };
 
     if (assignedStaffId) {
-      const User = require('../models/user');
+      const User = require('../models/User');
       const staff = await User.findById(assignedStaffId);
       if (staff && (staff.role === 'staff' || staff.role === 'admin')) {
         updateData.assignedStaffId = staff._id;

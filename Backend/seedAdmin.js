@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const User = require('./models/user');
+const User = require('./models/User');
 require('dotenv').config();
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
