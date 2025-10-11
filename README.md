@@ -33,12 +33,10 @@ The **Circus of Wonders** faces recurring issues like broken pathways, leaking c
 
 ### 3. Complaint Lifecycle
 - Status: **Open → In Progress → Resolved**
-- Staff can update notes, upload proof, and change status
+- Staff can update notes and change status
 
 ### 4. Reports & Analytics
 - CSV exports  
-- SLA compliance, resolution stats, heatmap metrics  
-
 ---
 
 ## 🧰 Tech Stack
@@ -46,7 +44,6 @@ The **Circus of Wonders** faces recurring issues like broken pathways, leaking c
 **Frontend:**
 - React.js  
 - Tailwind CSS  
-- GSAP (animations)
 - Axios (API calls)
 
 **Backend:**
