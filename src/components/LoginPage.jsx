@@ -1,10 +1,9 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { CircleUser as UserCircle, Lock, Mail, Key } from 'lucide-react';
-require('dotenv').config();
 
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_EMAIL = "admin@resolvewagon.com";
+const ADMIN_PASSWORD = "Admin@123";
 
 export default function LoginPage() {
   const { login, register } = useAuth();
