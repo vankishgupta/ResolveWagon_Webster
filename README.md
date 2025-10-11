@@ -35,21 +35,7 @@ The **Circus of Wonders** faces recurring issues like broken pathways, leaking c
 - Status: **Open → In Progress → Resolved**
 - Staff can update notes, upload proof, and change status
 
-### 4. SLA Tracking *(Smart Deadlines)*
-- Auto-deadlines assigned per complaint type
-- Overdue complaints marked as **SLA Breached**
-
-### 5. Escalation System
-- Auto-escalates unresolved complaints
-- Notifies citizens and admins
-
-### 6. Notification System
-- Real-time email updates on complaint progress
-
-### 7. Heatmap Visualization
-- Visual map of complaint density across locations
-
-### 8. Reports & Analytics
+### 4. Reports & Analytics
 - CSV exports  
 - SLA compliance, resolution stats, heatmap metrics  
 
@@ -124,12 +110,11 @@ Advanced analytics dashboards
 
 Role-based statistics export
 
-🌐 Demo / Deployment
-
-## 🌐 Live Links
-
-- **Frontend (Vercel):** [https://resolve-wagon-webster.vercel.app](https://resolve-wagon-webster.vercel.app)
-- **Backend API (Vercel):** [https://resolve-wagon-webster-j9c3.vercel.app](https://resolve-wagon-webster-j9c3.vercel.app)
+🌐 Live Demo
+🚀 Live Applications
+Platform	Live URL	Status
+Frontend Application	https://resolve-wagon-webster.vercel.app	✅ Live
+Backend API	https://resolve-wagon-webster-j9c3.vercel.app	✅ Live
 
 
 
