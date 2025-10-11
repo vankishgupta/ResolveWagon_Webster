@@ -8,6 +8,7 @@ const Note = require('../models/Note');
 const { auth, requireRole } = require('../middleware/auth');
 const upload = require('../middleware/upload');
 const { createObjectCsvWriter } = require('csv-writer');
+require('dotenv').config();
 
 const router = express.Router();
 

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { X, MapPin, Image as ImageIcon, Send, AlertCircle, Clock, CheckCircle, Lock } from 'lucide-react';
+require('dotenv').config();
 
 export default function ComplaintDetailsModal({ complaint, onClose, onUpdate }) {
   const { user, getAuthHeaders, API_BASE_URL } = useAuth();

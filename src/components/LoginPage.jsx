@@ -1,6 +1,10 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { CircleUser as UserCircle, Lock, Mail, Key } from 'lucide-react';
+require('dotenv').config();
+
+const ADMIN_EMAIL = process.env.ADMIN_EMAIL;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
 
 export default function LoginPage() {
   const { login, register } = useAuth();
@@ -21,7 +25,7 @@ export default function LoginPage() {
     try {
       if (isLogin) {
         // Check for fixed admin credentials
-        if (email === "admin@resolvewagon.com" && password === "Admin@123") {
+        if (email === `${ADMIN_EMAIL}` && password === `${ADMIN_PASSWORD}`) {
           // Use the regular login flow but with fixed admin credentials
           await login(email, password);
         } else {
