@@ -1,21 +1,17 @@
-
-
-
-
 const express = require('express');
 const Complaint = require('../models/Complaint');
 const Note = require('../models/Note');
 const { auth, requireRole } = require('../middleware/auth');
 const upload = require('../middleware/upload');
-const { createObjectCsvWriter } = require('csv-writer');
 require('dotenv').config();
 
 const router = express.Router();
 
-// Get all complaints (staff/admin/citizen can see all)
+// Get all complaints — sorted by priorityTier (Tier 1 first = Preemptive Priority)
 router.get('/', auth, async (req, res) => {
   try {
-    let complaints = await Complaint.find().sort({ createdAt: -1 });;
+    const complaints = await Complaint.find()
+      .sort({ priorityTier: 1, slaDeadline: 1, createdAt: -1 });
     res.json(complaints);
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -39,7 +35,7 @@ router.post('/', auth, upload.single('photo'), async (req, res) => {
       citizenName: req.user.name,
       locationLat: locationLat ? parseFloat(locationLat) : undefined,
       locationLng: locationLng ? parseFloat(locationLng) : undefined,
-      photoUrl: req.file ? req.file.path : undefined // Cloudinary returns secure_url in 'path'
+      photoUrl: req.file ? req.file.path : undefined
     });
 
     await complaint.save();
@@ -50,7 +46,7 @@ router.post('/', auth, upload.single('photo'), async (req, res) => {
 });
 
 
-// Update complaint (staff/admin only)
+// Update complaint (staff/admin only) — with P-Priority enforcement
 router.put('/:id', auth, requireRole(['staff', 'admin']), async (req, res) => {
   try {
     const { status, priority, assignedStaffId } = req.body;
@@ -70,6 +66,42 @@ router.put('/:id', auth, requireRole(['staff', 'admin']), async (req, res) => {
       });
     }
 
+    // === STAFF SELF-ASSIGN ONLY ===
+    // Staff can only assign complaints to themselves, not to other staff.
+    // Only admins can assign to any staff member.
+    if (assignedStaffId && 
+        req.user.role === 'staff' && 
+        assignedStaffId !== req.user._id.toString()) {
+      return res.status(403).json({
+        message: 'Staff can only assign complaints to themselves. Contact an admin to assign to another staff member.'
+      });
+    }
+
+    // === P-PRIORITY ENFORCEMENT ===
+    // If staff is trying to pick up a non-Tier-1 complaint,
+    // check if there are unassigned Tier 1 complaints in the system.
+    // This blocks Tier 2 AND Tier 3 assignments when Tier 1 is pending.
+    if (assignedStaffId && 
+        (complaint.priorityTier || 3) > 1 && 
+        req.user.role !== 'admin') {
+      const unassignedCritical = await Complaint.countDocuments({
+        status: { $ne: 'resolved' },
+        priorityTier: 1,
+        $or: [
+          { assignedStaffId: { $exists: false } },
+          { assignedStaffId: null }
+        ]
+      });
+
+      if (unassignedCritical > 0) {
+        return res.status(403).json({
+          message: 'Cannot pick up this complaint while Critical (Tier 1) complaints are unassigned. Please handle critical issues first.',
+          code: 'P_PRIORITY_VIOLATION'
+        });
+      }
+    }
+    // === END P-PRIORITY ===
+
     const updateData = { 
       status, 
       priority,
@@ -77,6 +109,8 @@ router.put('/:id', auth, requireRole(['staff', 'admin']), async (req, res) => {
     };
 
     if (assignedStaffId) {
+      // Staff: self-assign (already validated above)
+      // Admin: assign to any valid staff/admin
       const User = require('../models/User');
       const staff = await User.findById(assignedStaffId);
       if (staff && (staff.role === 'staff' || staff.role === 'admin')) {
@@ -96,8 +130,11 @@ router.put('/:id', auth, requireRole(['staff', 'admin']), async (req, res) => {
       updateData.assignedStaffName = undefined;
     }
 
+    // When resolving, reset SLA state
     if (status === 'resolved') {
       updateData.resolvedAt = new Date();
+      updateData.priorityTier = 3;
+      updateData.isBreached = false;
     }
 
     const updatedComplaint = await Complaint.findByIdAndUpdate(
@@ -156,70 +193,73 @@ router.post('/:id/notes', auth, requireRole(['staff', 'admin']), async (req, res
 });
 
 
+// Get complaint locations for heatmap (minimal payload)
+router.get('/locations', auth, async (req, res) => {
+  try {
+    const complaints = await Complaint.find()
+      .select('_id locationLat locationLng status');
+    
+    // Filter out complaints without location data
+    const locatedComplaints = complaints.filter(c => c.locationLat && c.locationLng);
+    res.json(locatedComplaints);
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 
-
-// Generate CSV report (admin only) - Using csv-writer
+// Generate CSV report (admin only) - Stream CSV directly to response
 router.get('/export/csv', auth, requireRole(['admin']), async (req, res) => {
   try {
     const complaints = await Complaint.find().sort({ createdAt: -1 });
 
-    // Format data for CSV
-    const csvData = complaints.map(complaint => ({
-      id: complaint._id.toString(),
-      title: complaint.title,
-      description: complaint.description,
-      category: complaint.category
-        ? complaint.category
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ')
-        : '',
-      status: complaint.status ? complaint.status.toUpperCase() : '',
-      priority: complaint.priority ? complaint.priority.toUpperCase() : '',
-      citizenName: complaint.citizenName,
-      assignedStaff: complaint.assignedStaffName || 'Unassigned',
-      createdDate: new Date(complaint.createdAt).toLocaleDateString('en-US'),
-      updatedDate: new Date(complaint.updatedAt).toLocaleDateString('en-US'),
-      resolvedDate: complaint.resolvedAt
-        ? new Date(complaint.resolvedAt).toLocaleDateString('en-US')
-        : 'Not Resolved',
-      locationLat: complaint.locationLat || 'N/A',
-      locationLng: complaint.locationLng || 'N/A',
-      hasPhoto: complaint.photoUrl ? complaint.photoUrl : 'N/A'
-    }));
-
     // Define CSV headers
-    const csvWriter = createObjectCsvWriter({
-      path: 'complaints-report.csv', // ✅ temporary file path
-      header: [
-        { id: 'id', title: 'ID' },
-        { id: 'title', title: 'Title' },
-        { id: 'description', title: 'Description' },
-        { id: 'category', title: 'Category' },
-        { id: 'status', title: 'Status' },
-        { id: 'priority', title: 'Priority' },
-        { id: 'citizenName', title: 'Citizen Name' },
-        { id: 'assignedStaff', title: 'Assigned Staff' },
-        { id: 'createdDate', title: 'Created Date' },
-        { id: 'updatedDate', title: 'Updated Date' },
-        { id: 'resolvedDate', title: 'Resolved Date' },
-        { id: 'locationLat', title: 'Location Latitude' },
-        { id: 'locationLng', title: 'Location Longitude' },
-        { id: 'hasPhoto', title: 'Image Url' }
-      ]
-    });
+    const headers = [
+      'ID', 'Title', 'Description', 'Category', 'Status', 'Priority', 'Tier',
+      'SLA Deadline', 'Breached', 'Escalation Count',
+      'Citizen Name', 'Assigned Staff', 'Created Date', 'Updated Date',
+      'Resolved Date', 'Location Latitude', 'Location Longitude', 'Image Url'
+    ];
 
-    // ✅ Write the data to a CSV file
-    await csvWriter.writeRecords(csvData);
-
-    // ✅ Send the file as a download
-    res.download('complaints-report.csv', 'complaints-report.csv', err => {
-      if (err) {
-        console.error('File download error:', err);
-        res.status(500).json({ message: 'Error sending CSV file' });
+    // Helper to escape CSV values
+    const escapeCSV = (value) => {
+      const str = String(value ?? '');
+      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+        return `"${str.replace(/"/g, '""')}"`;
       }
-    });
+      return str;
+    };
+
+    // Build CSV rows
+    const rows = complaints.map(complaint => [
+      complaint._id.toString(),
+      complaint.title,
+      complaint.description,
+      complaint.category
+        ? complaint.category.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+        : '',
+      complaint.status ? complaint.status.toUpperCase() : '',
+      complaint.priority ? complaint.priority.toUpperCase() : '',
+      `Tier ${complaint.priorityTier || 3}`,
+      complaint.slaDeadline ? new Date(complaint.slaDeadline).toISOString() : 'N/A',
+      complaint.isBreached ? 'YES' : 'NO',
+      complaint.escalationCount || 0,
+      complaint.citizenName,
+      complaint.assignedStaffName || 'Unassigned',
+      new Date(complaint.createdAt).toLocaleDateString('en-US'),
+      new Date(complaint.updatedAt).toLocaleDateString('en-US'),
+      complaint.resolvedAt ? new Date(complaint.resolvedAt).toLocaleDateString('en-US') : 'Not Resolved',
+      complaint.locationLat || 'N/A',
+      complaint.locationLng || 'N/A',
+      complaint.photoUrl || 'N/A'
+    ].map(escapeCSV).join(','));
+
+    const csvContent = [headers.join(','), ...rows].join('\n');
+
+    // Send CSV directly as response
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', 'attachment; filename=complaints-report.csv');
+    res.send(csvContent);
 
   } catch (error) {
     console.error('CSV export error:', error);

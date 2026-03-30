@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-import { LogOut, CircleUser as UserCircle, Bell } from 'lucide-react';
+import { LogOut, CircleUser as UserCircle } from 'lucide-react';
 
 export default function Header() {
   const { user, logout } = useAuth();

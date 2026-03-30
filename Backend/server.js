@@ -7,6 +7,8 @@ require('dotenv').config();
 const authRoutes = require('./routes/auth');
 const complaintRoutes = require('./routes/complaints');
 const userRoutes = require('./routes/users');
+const publicRoutes = require('./routes/public');
+const { startSLAWorker } = require('./workers/slaWorker');
 
 const app = express();
 
@@ -22,13 +24,15 @@ app.get('/test',(req,res)=>{
 app.use('/api/auth', authRoutes);
 app.use('/api/complaints', complaintRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/public', publicRoutes);
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/resolve-wagon', {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/resolve-wagon')
+.then(() => {
+  console.log('MongoDB connected');
+  // Start SLA worker after successful DB connection
+  startSLAWorker();
 })
-.then(() => console.log('MongoDB connected'))
 .catch(err => console.log('MongoDB connection error:', err));
 
 const PORT = process.env.PORT || 5000;

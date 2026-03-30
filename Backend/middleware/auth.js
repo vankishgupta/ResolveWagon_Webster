@@ -10,7 +10,7 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: 'No token, authorization denied' });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'resolve_wagon_super_secret_key_2024_@$%_make_this_very_long_and_secure_12345');
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user) {

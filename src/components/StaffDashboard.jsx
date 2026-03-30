@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, Clock, CheckCircle, Search, MapPin, Image as ImageIcon, Lock } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle, Search, MapPin, Image as ImageIcon, Lock, Map, AlertTriangle, Shield, Zap } from 'lucide-react';
 import ComplaintDetailsModal from './ComplaintDetailsModal';
+import Heatmap from './Heatmap';
 
 export default function StaffDashboard() {
   const { user, getAuthHeaders, API_BASE_URL } = useAuth();
@@ -10,6 +11,7 @@ export default function StaffDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   useEffect(() => {
     loadComplaints();
@@ -50,6 +52,13 @@ export default function StaffDashboard() {
     return complaint.assignedStaffId && complaint.assignedStaffId !== user?.id;
   };
 
+  // Check for unassigned Tier 1 (Critical) complaints
+  const hasUnassignedCritical = complaints.some(c => 
+    c.priorityTier === 1 && 
+    c.status !== 'resolved' && 
+    !c.assignedStaffId
+  );
+
   const filteredComplaints = complaints.filter(complaint => {
     const matchesSearch =
       complaint.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -79,16 +88,69 @@ export default function StaffDashboard() {
     }
   };
 
+  // Tier-based card styling
+  const getTierStyle = (complaint) => {
+    if (complaint.status === 'resolved') return 'border-slate-700/50';
+    switch (complaint.priorityTier) {
+      case 1: return 'border-red-500/70 bg-red-500/5 shadow-red-500/10 shadow-lg';
+      case 2: return 'border-amber-500/50 bg-amber-500/5';
+      default: return 'border-slate-700/50';
+    }
+  };
+
+  const getTierBadge = (complaint) => {
+    if (complaint.status === 'resolved') return null;
+    switch (complaint.priorityTier) {
+      case 1:
+        return (
+          <span className="flex items-center gap-1 px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded border border-red-500/50 animate-pulse">
+            <Shield className="w-3 h-3" />
+            CRITICAL
+          </span>
+        );
+      case 2:
+        return (
+          <span className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 text-amber-400 text-xs font-bold rounded border border-amber-500/50">
+            <Zap className="w-3 h-3" />
+            HIGH
+          </span>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // SLA countdown
+  const getSLACountdown = (complaint) => {
+    if (complaint.status === 'resolved' || !complaint.slaDeadline) return null;
+    const now = new Date();
+    const deadline = new Date(complaint.slaDeadline);
+    const diff = deadline - now;
+
+    if (diff <= 0) {
+      return <span className="text-red-400 text-xs font-bold">SLA BREACHED</span>;
+    }
+
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+
+    if (hours < 12) {
+      return <span className="text-amber-400 text-xs font-medium">{hours}h {minutes}m remaining</span>;
+    }
+    return <span className="text-slate-500 text-xs">{hours}h remaining</span>;
+  };
+
   const getCategoryLabel = (category) => {
     return category.split('_').map(word =>
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
   };
 
-  const getPhotoUrl = (photoUrl) => {
-    if (!photoUrl) return null;
-    if (photoUrl.startsWith('http')) return photoUrl;
-    return `https://resolve-wagon-webster-j9c3.vercel.app/${photoUrl}`;
+  // Count stats
+  const tierCounts = {
+    critical: complaints.filter(c => c.priorityTier === 1 && c.status !== 'resolved').length,
+    high: complaints.filter(c => c.priorityTier === 2 && c.status !== 'resolved').length,
+    breached: complaints.filter(c => c.isBreached && c.status !== 'resolved').length,
   };
 
   if (loading) {
@@ -101,39 +163,65 @@ export default function StaffDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold text-white mb-2">
-          {user?.role === 'admin' ? 'Admin Dashboard' : 'Staff Dashboard'}
-        </h1>
-        <p className="text-slate-400">Manage and resolve citizen complaints</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-white mb-2">
+            {user?.role === 'admin' ? 'Admin Dashboard' : 'Staff Dashboard'}
+          </h1>
+          <p className="text-slate-400">Manage and resolve citizen complaints</p>
+        </div>
+        <button
+          onClick={() => setShowHeatmap(true)}
+          className="flex items-center gap-2 bg-slate-700/50 text-slate-300 px-5 py-3 rounded-lg hover:bg-slate-700 transition-all font-medium border border-slate-600"
+        >
+          <Map className="w-5 h-5" />
+          Heatmap
+        </button>
       </div>
 
-      {/* Stats cards remain the same */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* P-Priority Warning Banner */}
+      {hasUnassignedCritical && (
+        <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-4 flex items-start gap-3 animate-pulse">
+          <AlertTriangle className="w-6 h-6 text-red-400 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-red-400 font-semibold">Critical Complaints Require Attention</p>
+            <p className="text-red-300/70 text-sm mt-1">
+              There are unassigned Tier 1 (SLA-breached) complaints. You must handle these before picking up normal priority tasks.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Stats cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-slate-700/50 p-6">
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 bg-slate-700/50 rounded-lg flex items-center justify-center">
               <AlertCircle className="w-5 h-5 text-slate-400" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">{complaints.length}</p>
-            </div>
+            <p className="text-2xl font-bold text-white">{complaints.length}</p>
           </div>
-          <p className="text-slate-400 text-sm">Total Complaints</p>
+          <p className="text-slate-400 text-sm">Total</p>
         </div>
 
-        <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-orange-700/50 p-6">
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-red-700/50 p-6">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 bg-orange-500/10 rounded-lg flex items-center justify-center">
-              <AlertCircle className="w-5 h-5 text-orange-400" />
+            <div className="w-10 h-10 bg-red-500/10 rounded-lg flex items-center justify-center">
+              <Shield className="w-5 h-5 text-red-400" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">
-                {complaints.filter(c => c.status === 'open').length}
-              </p>
-            </div>
+            <p className="text-2xl font-bold text-white">{tierCounts.critical}</p>
           </div>
-          <p className="text-slate-400 text-sm">Open</p>
+          <p className="text-red-400 text-sm font-medium">Critical (Tier 1)</p>
+        </div>
+
+        <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-amber-700/50 p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-amber-400" />
+            </div>
+            <p className="text-2xl font-bold text-white">{tierCounts.high}</p>
+          </div>
+          <p className="text-amber-400 text-sm font-medium">High (Tier 2)</p>
         </div>
 
         <div className="bg-slate-800/50 backdrop-blur-xl rounded-xl border border-blue-700/50 p-6">
@@ -141,11 +229,9 @@ export default function StaffDashboard() {
             <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center">
               <Clock className="w-5 h-5 text-blue-400" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">
-                {complaints.filter(c => c.status === 'in_progress').length}
-              </p>
-            </div>
+            <p className="text-2xl font-bold text-white">
+              {complaints.filter(c => c.status === 'in_progress').length}
+            </p>
           </div>
           <p className="text-slate-400 text-sm">In Progress</p>
         </div>
@@ -155,11 +241,9 @@ export default function StaffDashboard() {
             <div className="w-10 h-10 bg-green-500/10 rounded-lg flex items-center justify-center">
               <CheckCircle className="w-5 h-5 text-green-400" />
             </div>
-            <div>
-              <p className="text-2xl font-bold text-white">
-                {complaints.filter(c => c.status === 'resolved').length}
-              </p>
-            </div>
+            <p className="text-2xl font-bold text-white">
+              {complaints.filter(c => c.status === 'resolved').length}
+            </p>
           </div>
           <p className="text-slate-400 text-sm">Resolved</p>
         </div>
@@ -205,18 +289,23 @@ export default function StaffDashboard() {
               <div
                 key={complaint._id}
                 onClick={() => setSelectedComplaint(complaint)}
-                className="bg-slate-900/50 rounded-lg border border-slate-700/50 p-6 hover:border-blue-500/50 transition-all cursor-pointer"
+                className={`bg-slate-900/50 rounded-lg border p-6 hover:border-blue-500/50 transition-all cursor-pointer ${getTierStyle(complaint)}`}
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h3 className="text-lg font-semibold text-white">{complaint.title}</h3>
+                      {getTierBadge(complaint)}
+                      {complaint.isBreached && complaint.status !== 'resolved' && (
+                        <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs font-bold rounded border border-red-500/50">
+                          SLA BREACHED
+                        </span>
+                      )}
                       {complaint.priority === 'high' && (
                         <span className="px-2 py-1 bg-red-500/10 text-red-400 text-xs font-medium rounded border border-red-500/50">
                           HIGH PRIORITY
                         </span>
                       )}
-                      {/* Lock indicator for assigned complaints */}
                       {isAssignedToOther(complaint) && (
                         <span className="flex items-center gap-1 px-2 py-1 bg-yellow-500/10 text-yellow-400 text-xs font-medium rounded border border-yellow-500/50">
                           <Lock className="w-3 h-3" />
@@ -247,6 +336,7 @@ export default function StaffDashboard() {
                           minute: '2-digit'
                         })}
                       </span>
+                      {getSLACountdown(complaint)}
                       {complaint.locationLat && complaint.locationLng && (
                         <span className="flex items-center gap-1 text-slate-400">
                           <MapPin className="w-4 h-4" />
@@ -291,7 +381,12 @@ export default function StaffDashboard() {
           complaint={selectedComplaint}
           onClose={() => setSelectedComplaint(null)}
           onUpdate={handleComplaintUpdate}
+          hasUnassignedCritical={hasUnassignedCritical}
         />
+      )}
+
+      {showHeatmap && (
+        <Heatmap onClose={() => setShowHeatmap(false)} />
       )}
     </div>
   );

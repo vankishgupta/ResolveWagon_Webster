@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(undefined);
 
-const API_BASE_URL = 'https://resolve-wagon-webster-j9c3.vercel.app/api';
+const API_BASE_URL = 'http://localhost:5000/api';
 
 
 export function AuthProvider({ children }) {

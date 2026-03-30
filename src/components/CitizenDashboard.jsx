@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Plus, AlertCircle, Clock, CheckCircle, MapPin, Image as ImageIcon, Filter } from 'lucide-react';
+import { Plus, AlertCircle, Clock, CheckCircle, MapPin, Image as ImageIcon, Filter, Map } from 'lucide-react';
 import ComplaintForm from './ComplaintForm';
+import Heatmap from './Heatmap';
 
 export default function CitizenDashboard() {
   const { user, getAuthHeaders, API_BASE_URL } = useAuth();
@@ -9,6 +10,7 @@ export default function CitizenDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [filter, setFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false);
 
   useEffect(() => {
     loadComplaints();
@@ -114,13 +116,22 @@ export default function CitizenDashboard() {
           <h1 className="text-3xl font-bold text-white mb-2">Community Complaints</h1>
           <p className="text-slate-400">View and track all community grievances</p>
         </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg shadow-blue-500/50 font-medium"
-        >
-          <Plus className="w-5 h-5" />
-          New Complaint
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowHeatmap(true)}
+            className="flex items-center gap-2 bg-slate-700/50 text-slate-300 px-5 py-3 rounded-lg hover:bg-slate-700 transition-all font-medium border border-slate-600"
+          >
+            <Map className="w-5 h-5" />
+            Heatmap
+          </button>
+          <button
+            onClick={() => setShowForm(true)}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-all shadow-lg shadow-blue-500/50 font-medium"
+          >
+            <Plus className="w-5 h-5" />
+            New Complaint
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -274,6 +285,10 @@ export default function CitizenDashboard() {
           onClose={() => setShowForm(false)}
           onSubmit={handleComplaintSubmit}
         />
+      )}
+
+      {showHeatmap && (
+        <Heatmap onClose={() => setShowHeatmap(false)} />
       )}
     </div>
   );
