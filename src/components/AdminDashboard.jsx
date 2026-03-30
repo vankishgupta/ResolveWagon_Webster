@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { AlertCircle, Clock, CheckCircle, Search, MapPin, Image as ImageIcon, Download, Filter, User, FileText } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle, Search, MapPin, Image as ImageIcon, Download, Filter, User, FileText, Map } from 'lucide-react';
+import Heatmap from './Heatmap';
 
 export default function AdminDashboard() {
   const { user, getAuthHeaders, API_BASE_URL } = useAuth();
   const [complaints, setComplaints] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [loading, setLoading] = useState(true); 
+  const [loading, setLoading] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(false); 
 
   useEffect(() => {
     loadComplaints();
@@ -116,13 +118,22 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-white mb-2">Admin Dashboard</h1>
           <p className="text-slate-400">View all complaints and generate reports</p>
         </div>
-        <button
-          onClick={handleDownloadCSV}
-          className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg hover:from-red-600 hover:to-red-500 active:scale-80 transition-all duration-200 shadow-lg shadow-red-500/25 font-medium"
-          >        
-          <Download className="w-5 h-5" />
-          Download CSV Report
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowHeatmap(true)}
+            className="flex items-center gap-2 bg-slate-700/50 text-slate-300 px-5 py-3 rounded-lg hover:bg-slate-700 transition-all font-medium border border-slate-600"
+          >
+            <Map className="w-5 h-5" />
+            Heatmap
+          </button>
+          <button
+            onClick={handleDownloadCSV}
+            className="flex items-center gap-2 bg-gradient-to-r from-red-500 to-red-600 text-white px-6 py-3 rounded-lg hover:from-red-600 hover:to-red-500 active:scale-80 transition-all duration-200 shadow-lg shadow-red-500/25 font-medium"
+          >
+            <Download className="w-5 h-5" />
+            Download CSV Report
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -286,6 +297,10 @@ export default function AdminDashboard() {
           )}
         </div>
       </div>
+
+      {showHeatmap && (
+        <Heatmap onClose={() => setShowHeatmap(false)} />
+      )}
     </div>
   );
 }

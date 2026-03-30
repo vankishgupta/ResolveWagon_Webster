@@ -7,8 +7,10 @@ require('dotenv').config();
 const router = express.Router();
 
 // Generate JWT Token
+const JWT_FALLBACK_SECRET = 'resolve_wagon_super_secret_key_2024_@$%_make_this_very_long_and_secure_12345';
+
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET || 'resolve_wagon_super_secret_key_2024_@#$%_make_this_very_long_and_secure_12345', {
+  return jwt.sign({ userId }, process.env.JWT_SECRET || JWT_FALLBACK_SECRET, {
     expiresIn: '7d'
   });
 };
@@ -46,22 +48,19 @@ router.post('/register', async (req, res) => {
       }
     }
 
-    // Create user
+    // Create user with lastLogin set before save to avoid double-hashing password
     const user = new User({
       name,
       email,
       password,
-      role: role || 'citizen'
+      role: role || 'citizen',
+      lastLogin: new Date()
     });
 
     await user.save();
 
     // Generate token
     const token = generateToken(user._id);
-
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
 
     res.status(201).json({
       token,

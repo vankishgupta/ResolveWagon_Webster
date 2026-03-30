@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { CircleUser as UserCircle, Lock, Mail, Key } from 'lucide-react';
+import { CircleUser as UserCircle, Lock, Mail, Key, BarChart3 } from 'lucide-react';
 
-const ADMIN_EMAIL = "admin@resolvewagon.com";
-const ADMIN_PASSWORD = "Admin@123";
-
-export default function LoginPage() {
+export default function LoginPage({ onShowPortal }) {
   const { login, register } = useAuth();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
@@ -23,13 +20,7 @@ export default function LoginPage() {
 
     try {
       if (isLogin) {
-        // Check for fixed admin credentials
-        if (email === `${ADMIN_EMAIL}` && password === `${ADMIN_PASSWORD}`) {
-          // Use the regular login flow but with fixed admin credentials
-          await login(email, password);
-        } else {
-          await login(email, password);
-        }
+        await login(email, password);
       } else {
         // Pass registrationKey only for staff role (admin removed)
         const regData = { name, email, password, role };
@@ -195,6 +186,17 @@ export default function LoginPage() {
               {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Create Account'}
             </button>
           </form>
+        </div>
+
+        {/* Transparency Portal Link */}
+        <div className="text-center mt-6">
+          <button
+            onClick={onShowPortal}
+            className="inline-flex items-center gap-2 text-slate-400 hover:text-emerald-400 transition-colors text-sm"
+          >
+            <BarChart3 className="w-4 h-4" />
+            View Public Transparency Portal
+          </button>
         </div>
       </div>
     </div>

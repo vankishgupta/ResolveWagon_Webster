@@ -1,12 +1,15 @@
+import { useState } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './components/LoginPage';
 import Header from './components/Header';
 import CitizenDashboard from './components/CitizenDashboard';
 import StaffDashboard from './components/StaffDashboard';
 import AdminDashboard from './components/AdminDashboard';
+import TransparencyPortal from './components/TransparencyPortal';
 
 function AppContent() {
   const { user, isLoading } = useAuth();
+  const [showPortal, setShowPortal] = useState(false);
 
   if (isLoading) {
     return (
@@ -16,8 +19,13 @@ function AppContent() {
     );
   }
 
+  // Show Transparency Portal (accessible without auth)
+  if (showPortal) {
+    return <TransparencyPortal onBack={() => setShowPortal(false)} />;
+  }
+
   if (!user) {
-    return <LoginPage />;
+    return <LoginPage onShowPortal={() => setShowPortal(true)} />;
   }
 
   return (
